@@ -4708,7 +4708,9 @@ next_tail:
 ** into the index P1.  Data for the entry is nil.
 **
 ** P3 is a flag that provides a hint to the b-tree layer that this
-** insert is likely to be an append.
+** insert is an append. In other words, if P3 is set then it is guaranteed
+** that key P2 is larger than all the keys already present in index 
+** btree P1.
 **
 ** If P5 has the OPFLAG_NCHANGE bit set, then the change counter is
 ** incremented by this instruction.  If the OPFLAG_NCHANGE bit is clear,
@@ -4727,6 +4729,7 @@ case OP_IdxInsert: {        /* in2 */
   BtCursor *pCrsr;
   int nKey;
   const char *zKey;
+  int bEmpty;
 
   assert( pOp->p1>=0 && pOp->p1<p->nCursor );
   pC = p->apCsr[pOp->p1];
@@ -4742,12 +4745,18 @@ case OP_IdxInsert: {        /* in2 */
   if( rc==SQLITE_OK ){
     if( isSorter(pC) ){
       rc = sqlite3VdbeSorterWrite(pC, pIn2);
+    }else if( pOp->p3 ){
+      assert( pC->seekResult==0 && (pOp->p5 & OPFLAG_USESEEKRESULT)==0 );
+      rc = sqlite3BtreeLast(pCrsr, &bEmpty);
+      if( rc==SQLITE_OK ){
+        rc = sqlite3BtreeInsert(pCrsr, pIn2->z, pIn2->n,"",0,0,1,(bEmpty?0:-1));
+      }
     }else{
       nKey = pIn2->n;
       zKey = pIn2->z;
-      rc = sqlite3BtreeInsert(pCrsr, zKey, nKey, "", 0, 0, pOp->p3, 
+      rc = sqlite3BtreeInsert(pCrsr, zKey, nKey, "", 0, 0, 0, 
           ((pOp->p5 & OPFLAG_USESEEKRESULT) ? pC->seekResult : 0)
-          );
+      );
       assert( pC->deferredMoveto==0 );
       pC->cacheStatus = CACHE_STALE;
     }

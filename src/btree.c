@@ -7669,7 +7669,7 @@ int sqlite3BtreeInsert(
   */
   pCur->info.nSize = 0;
   if( rc==SQLITE_OK && pPage->nOverflow ){
-    pCur->curFlags &= ~(BTCF_ValidNKey);
+    pCur->curFlags &= ~(BTCF_ValidNKey|BTCF_AtLast);
     rc = balance(pCur);
 
     /* Must make sure nOverflow is reset to zero even if the balance()
